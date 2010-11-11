@@ -22,7 +22,7 @@ group rows by column COLUMNNO; can appear multiple times to group whole tuples; 
 output value of unaggregated column COLUMNNO (must be a column that also was specified with -g); in SQL: "SELECT attribute"
 
 -o COLUMNNO,AGGREGATEFUNCTION
-output aggregated value of column COLUMNNO; aggrecatefunction can be one of: count, sum, avg, min, max, first, last, median, mode; in SQL: "SELECT COUNT(attribute)"
+output aggregated value of column COLUMNNO; AGGREGATEFUNCTION can be one of: count, sum, avg, min, max, first, last, median, mode; in SQL: "SELECT COUNT(attribute)"
 
 -g and -o can occur in any number. The order of -o arguments defines the order of output columns. 
 
