@@ -1,0 +1,15 @@
+- implement count-all function as "countall" instead of "*,count"??
+
+- USAGE / --help / -h option
+
+- Better solution for data type handling? - Currently for most aggregate functions the input data is converted to (and outputted as) float.
+
+- automated testcases (input data, arguments, output data) + typical error cases (wrong arguments, missing fields in input data, ...) - with unittest module?
+
+- When using aggregate functions needing floats: convert "" (empty string) to 0? - as an option (-n or -z)?
+
+- abort when no output defined? ( - no.)
+
+- Add some nice examples with data from Freebase?
+
+- use getopt, argparse (python >= 2.7) or optparse (deprecated)?
