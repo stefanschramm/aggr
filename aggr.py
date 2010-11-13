@@ -50,46 +50,11 @@ def parse_cmdline_arguments(args):
                 continue
             except StopIteration:
                 sys.exit("Missing argument for -d (field delimiter)")
-        if arg == '-g':
-            # group
-            try:
-                opt = args.next()
-                try:
-                    group.append(int(opt))
-                    continue
-                except ValueError:
-                    sys.exit("Invalid argument for -g (must be numeric!)")
-            except StopIteration:
-                sys.exit("Missing argument for -g (column number)")
-        if arg == '-o':
-            # output
-            try:
-                opt = args.next()
-                optargs = opt.split(',')
-
-                if len(optargs) == 1:
-                    if not optargs[0].isdigit():
-                        sys.exit("Invalid argument for -o (must be numeric)")
-                    outputs.append([int(optargs[0]), None]) # no aggregation
-                    continue
-                if len(optargs) == 2:
-                    if not (optargs[0].isdigit() or (optargs[0] == '*' and optargs[1] == 'count')):
-                        sys.exit("Invalid argument for -o (must be numeric or * for aggregate function count)")
-                    outputs.append([optargs[0], optargs[1]]) # aggregation
-                    continue
-                sys.exit("Invalid number of arguments for option -o")
-            except StopIteration:
-                sys.exit("Missing argument for -o (column number [and aggregate function])")
-        sys.exit("Unknown option: " + arg)
-
-    # semantic check
-    for output in outputs:
-        if output[1] == None:
-            if not output[0] in group:
-                sys.exit("Non-aggregated output column (" + str(output[0]) + ") must be a group column")
-        else:
-            if output[0] in group:
-                sys.exit("Aggregated output column (" + str(output[0]) + ") can't be a group column")
+        # interpret argument as output column
+        outputs.append(arg)
+        if arg.isdigit():
+            # if it's only a number: group column
+            group.append(int(arg))
 
     return filename, delimiter, outputs, group
 
@@ -126,29 +91,40 @@ def output_groups(groups, grouporder, outputs, delimiter):
     for group in grouporder:
         output_line = []
         for output in outputs:
-            if output[1] == None:
-                output_line.append(groups[group][0][output[0]]) # no aggregation
+            if output.isdigit():
+                output_line.append(groups[group][0][int(output)]) # no aggregation
             else:
-                output_line.append(aggregate(groups[group], output[0], output[1])) # apply aggregate function
+                output_line.append(aggregate(groups[group], output)) # apply aggregate function
         print delimiter.join(output_line)
 
-def aggregate(data, column, function):
+def aggregate(data, output):
+    
+    try:
+        function, column = output.split(":")
+    except ValueError:
+        sys.exit("Syntax error for output column: " + output)
+        
+    # special case: *,count
+    if function == "count" and column == "*":
+        return str(len(data))
+
+    # following functions require column to be an integer
+    if not column.isdigit():
+        sys.exit("Column number for aggregate function must be numeric (or *, but only for count).")
+    column = int(column);
+        
     try:
         # most aggregate functions follow a simple map-reduce-pattern
         # some don't need map (like first and last) or map in their own way
-        if function in ['sum', 'avg', 'max', 'min']:
-            columndata = map(lambda row: row[int(column)], data)
+        if function in ['sum', 'avg', 'max', 'min', 'count']:
+            columndata = map(lambda row: row[column], data)
 
         # make out aggregate function
         if function == 'sum':
             return str(reduce(lambda a, b: a + float(b), columndata, 0))
         if function == 'count':
-            if column == '*':
-                return str(len(data))
-            else:
-                # an empty string has the meaning that NULL has in SQL
-                columndatafiltered = filter(lambda row: row != "", map(lambda row: row[int(column)], data))
-                return str(len(columndatafiltered))
+            # an empty string has the meaning that NULL has in SQL
+            return str(len(filter(lambda row: row != "", columndata)))
         if function == 'avg':
             return str(reduce(lambda a, b: a + float(b), columndata, 0) / len(columndata))
         if function == 'max':
@@ -160,7 +136,8 @@ def aggregate(data, column, function):
         if function == 'last':
             return data[len(data)-1][int(column)]
         if function == 'median':
-            columndatasorted = sorted(map(lambda row: float(row[int(column)]), data))
+            # here we're assuming that a numeric order is wanted!
+            columndatasorted = sorted(map(lambda row: float(row[column]), data))
             if len(columndatasorted) % 2 == 0:
                 # even: return average of the 2 elements in the middle
                 return str((columndatasorted[len(columndatasorted) / 2 - 1] + columndatasorted[len(columndatasorted) / 2]) / 2)

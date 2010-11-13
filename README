@@ -1,93 +1,120 @@
-NAME
+aggr(1)                                                            aggr(1)
 
-aggr - aggregate CSV-data and print on the standard output
+
+
+NAME
+       aggr - aggregate CSV-data and print on the standard output
 
 
 SYNOPSIS
-
-aggr [OPTIONS]
+       aggr [OPTIONS] COLUMNS...
 
 
 DESCRIPTION
-
-aggr aggregates CSV-data (comma seperated values) from a file or STDIN thru well-known aggregate functions and outputs the result to STDOUT. It tries to simulate some of the functionality that is provided by SQL's "GROUP BY"-statement.
+       aggr  aggregates  CSV-data  (comma seperated values) from a file or
+       standard input thru well-known aggregate functions and outputs  the
+       result  to  standard output. It tries to simulate some of the func‐
+       tionality that is provided by SQL's "GROUP BY"-statement.
 
 
 OPTIONS
+       -f INPUTFILE
+              read data from INPUTFILE instead of standard input
 
--g COLUMNNO
-group rows by column COLUMNNO; can appear multiple times to group whole tuples; in SQL: "GROUP BY attribute"
 
--o COLUMNNO
-output value of unaggregated column COLUMNNO (must be a column that also was specified with -g); in SQL: "SELECT attribute"
+       -d DELIMITER
+              use DELIMITER instead of Tab as field delimiter  (for  input
+              and output)
 
--o COLUMNNO,AGGREGATEFUNCTION
-output aggregated value of column COLUMNNO; AGGREGATEFUNCTION can be one of: count, sum, avg, min, max, first, last, median, mode; in SQL: "SELECT COUNT(attribute)"
 
--g and -o can occur in any number. The order of -o arguments defines the order of output columns. 
+COLUMNS
+       The  columns that will be printed in output are defined by the COL‐
+       UMNS arguments. There are two kinds of columns:
 
-For the COLUMNO argument the first column is 0, the second is 1 and so on.
 
--f INPUTFILE
-read data from INPUTFILE instead of STDIN
+       Grouping columns
+              define which columns are used to group the input data.  They
+              are  simply  specified by their column number. These columns
+              are the attributes that one would mention in  the  GROUP  BY
+              statement in SQL.
 
--d DELIMITER
-use DELIMITER instead of Tab as field delimiter
+
+       Aggregated columns
+              are  columns  whose  values  are  calculated by an aggregate
+              function. The syntax is AGGREGATEFUNCTION:COLUMNNUMBER.  See
+              below for supported aggregate functions.
+
+
+       The columns will appear in the output in the same order as in which
+       they were specified in the arguments. It is possible to output  the
+       same column several times (with different aggregate functions). The
+       column numbering scheme is 0-based: the  first  column  has  column
+       number 0, the second 1 and so on.
+
+
+
+AGGREGATE FUNCTIONS
+       These aggregate functions are supported: count, sum, avg, min, max,
+       first, last, median.
+
 
 
 EXAMPLES
+       Let's say there is a file name_city_age.csv with the following con‐
+       tent (list of persons with name, city and age):
 
-Let's say there is a file name_city_age.csv with the following content:
-Hans	Regensburg	42
-Heidi	Straubing	40
-Peter	Straubing	20
-Else	Regensburg	10
-Hans	Augsburg	63
-Hans	Ingolstadt	71
+       Hans;Regensburg;42
+       Heidi;Straubing;40
+       Peter;Straubing;20
+       Else;Regensburg;10
+       Hans;Augsburg;63
+       Hans;Ingolstadt;71
 
-Then
-aggr -f name_city_age.csv -g 1 -o 1 -o 2,avg
-will return:
-Regensburg	26.0
-Straubing	30.0
-Augsburg	63.0
-Ingolstadt	71.0
+       Then
 
-The grouping-criteria is the second column (column number 1) which is the column with the city names. The output columns are the city name and the average age of the listed inhabitants of this city. In SQL the query would be something like SELECT city,AVG(age) FROM persons GROUP BY city;.
+       aggr -f name_city_age.csv -d ";" 1 avg:2
 
-aggr -f name_city_age.csv -g 1 -o 2,avg -o 1 | sort -rn
+       will return:
 
-Will basically do the same as in the previous example, but outputs the average-age columns first and uses sort -rn to output the rows in descending order.
+       Regensburg;26.0
+       Straubing;30.0
+       Augsburg;63.0
+       Ingolstadt;71.0
 
-aggr -f name_city_age.csv -g 0 -o *,count -o 0 | sort -rn
+       The  grouping-criteria is the second column (column number 1) which
+       is the column with the city names. The  aggregated  column  is  the
+       average  age  of  the  listed  inhabitants of this city. In SQL the
+       query would be something like  SELECT  city,AVG(age)  FROM  persons
+       GROUP BY city;.
 
-This time we're using the name column for grouping and count as aggregate function. This gives us the number how often a name is in the list.
+       aggr -f name_city_age.csv -d ";" avg:2 1 | sort -rn
 
+       Will  basically do the same as in the previous example, but outputs
+       the average-age column first and uses sort -rn to output  the  rows
+       in descending order.
 
-The following examples are using data of Germanys "Gemeindeverzeichnis" (municipality directory) which is available at: http://www.statistik-portal.de/Statistik-Portal/gemeindeverz.csv
+       aggr -f name_city_age.csv -d ";" 0 count:*
 
-cat gemeindeverz.csv | tail -n +2 | aggr -d ";" -o 13,avg
-Return the average number of inhabitants of a munincipality in Germany. tail is used to skip the first line (header). For aggr no grouping is used since all rows should be aggregated as one single group - thus aggr will only return one line.
+       This  time  we're  using  the name column for grouping and count as
+       aggregate function. This gives us the number how often  which  name
+       is in the list.
 
-cat gemeindeverz.csv | tail -n +2 | aggr -d ";" -g 1 -o 13,avg -o 1 | sort -nr
-Return average number of inhabitants of municipalities per federal state (Bundesland). The data is grouped by the second column (COLUMNO=1) because this column contains the name of the federal state. Afterwards the result is sorted (numerically) in descending order.
+       Find   more   examples   in  the  wiki:  https://github.com/stefan‐
+       schramm/aggr/wiki
 
-cat gemeindeverz.csv | tail -n +2 | aggr -d ";" -g 1 -o 13,sum -o 1 | sort -nr
-Return number of inhabitants per federal state in descending order.
 
 
 MAJOR DIFFERENCES TO SQL'S GROUP BY:
+       In aggr an aggregate function can only be applied to a single  col‐
+       umn. That means expressions like SUM(price * amount) in SQL are not
+       possible here. To achieve this you should first calculate the prod‐
+       uct  with  some  other commandline utility into a single column and
+       then pipe it's output to aggr.
 
-In aggr one aggregation can only be applied to a single column. That means expressions like SUM(price * amount) in SQL are not possible here. To achieve this you should first calculate the product with some other commandline utility into a single column and then pipe it's output to aggr.
+
+AUTHOR
+       Stefan Schramm <mail@stefanschramm.net>
 
 
-COPYRIGHT
 
-Copyright (C) 2010, Stefan Schramm <mail@stefanschramm.net>
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+                               NOVEMBER 2010                       aggr(1)
